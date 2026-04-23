@@ -1,5 +1,3 @@
-#pragma once
-
 #include "fbank2lib.h"
 
 void fb2_disable_wr_protection() {
@@ -20,13 +18,32 @@ uint32_t fb2_read_word(uint32_t offset) {
     return *(uint32_t*)(FLASH_BANK2_BASE + offset);
 }
 
-void fb2_write_word(uint32_t offset, uint32_t data) {
+void fb2_write_word(uint32_t data, uint32_t offset) {
     *(uint32_t*)(FLASH_BANK2_BASE + offset) = data;
 }
 
-void fb2_write(uint32_t * data, uint32_t size, uint32_t base_offset) {
+uint32_t fb2_write(char * data, uint32_t size, uint32_t base_offset) {
+    if (size % 4)
+        return 1;
+
+    uint32_t * data_word = (uint32_t*)data;
+    size = size / 4;
+
     for (uint32_t i = 0; i < size; i++)
     {
-        fb2_write_word(base_offset+i, data[i]);
+        fb2_write_word(data_word[i], base_offset+i);
+    }
+}
+
+uint32_t fb2_read(char * buffer, uint32_t size, uint32_t offset) {
+    if (size % 4)
+        return 1;
+
+    uint32_t * buffer_word = (uint32_t*)buffer;
+    size = size / 4;
+
+    for (uint32_t i = 0; i < size; i++)
+    {
+        buffer_word[i] = fb2_read_word(offset+i);
     }
 }

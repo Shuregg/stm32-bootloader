@@ -29,19 +29,16 @@ static void delay(int ms)
 extern void HardFault_Handler();
 uint32_t bootloader_SP = 0;
 static const char* gc_help_msg =
-    u8"\n\r┌────────────┬──────────────┬────────────┬────────────┬───────┬─────────────┐"
-    u8"\n\r│ 1:BootSRAM │ 2:UsageFault │ 3:BusFault │ 4:MemFault │ 5:FB2 │ 6:BootFlash │"
-    u8"\n\r└────────────┴──────────────┴────────────┴────────────┴───────┴─────────────┘"
-    u8"\n\r Выбор [1-6] > ";
+    u8"\n\r┌────────────┬──────────────┬───────┬─────────────┐"
+    u8"\n\r│ 1:BootSRAM │ 2:TestFLASH2 │ 3:FB2 │ 4:BootFlash │"
+    u8"\n\r└────────────┴──────────────┴───────┴─────────────┘"
+    u8"\n\r Выбор [1-4] > ";
 static void do_BootSRAM();
-static void do_UsageFault();
-static void do_MemFault();
-static void do_BusFault();
+static void do_TestFlash2();
 static void flashbank2_manage();
 static void do_User();
 typedef void (*handler_func_t)();
-handler_func_t handlers[NUM_COMMANDS] = {do_BootSRAM, do_UsageFault, do_BusFault,
-                                         do_MemFault, flashbank2_manage,     do_User};
+handler_func_t handlers[NUM_COMMANDS] = {do_BootSRAM, do_TestFlash2, flashbank2_manage, do_User};
 uint8_t read_handler_index() {
     while (vterm_keypressed() != 0)
         ;
@@ -72,10 +69,10 @@ void prepare_bootloader(){
 int main() {
     vterm_init(115200);
     enable_fault_handlers();
+    fb2_disable_wr_protection();
 
     if (check_valid_BootSRAM())
     {
-        uint64_t cnt = -1;
         puts("\r\nFirmware in AXISRAM is valid");
         RCC->AHB4ENR |= RCC_AHB4ENR_GPIOCEN;
         GPIOC->MODER &= ~GPIO_MODER_MODER13_Msk;
@@ -105,45 +102,21 @@ void do_BootSRAM() {
 
     load_by_address(APP_SRAM_OFFSET);
 }
-void do_UsageFault() {
-    // Отслеживаемые ошибки задаются в SCB->UFSR (PM0253.rev5 стр. 209 )
-    // Например, деление на ноль, Доступ к невыровненным данным
 
-    volatile int a = 10;
-    volatile int b = 0;
-    volatile int c = a / b;
+void do_TestFlash2() {
+    fb2_write_word('C', 0);
+
+    printf("\r\nRead from flash: %c", fb2_read_word(0));
 }
-void do_MemFault() {
-    // Нарушнеие аттрибутов памяти
-    // например, попытка выполнения кода из области памяти для переферийных устройств
-    void* ptr = (void*)0x40000000;
-    goto* ptr;
-}
-void do_BusFault() {
-    // Ошибка доступа к памяти по шине
-    // Например, попытка чтения из отсутствующей внешней памяти (0х60000000)
-    uint32_t fault = *(uint32_t*)0x60000000;
-    printf("\r\n%d", fault);
-}
+
 void flashbank2_manage() {
-    fb2_disable_wr_protection();
 
-    fb2_write_word(0, 0xA);
-
-    printf("\r\nRead from flash: %x", fb2_read_word(0));
-
-    // if (!check_valid_BootSRAM()) {
-    //     printf("\r\n[ERROR] Invalid firmware in SRAM!");
-    //     return;
-    // }
     char * fw_byte;
     char * firmware [FIRMWARE_SIZE];
 
     vterm_gets(firmware, FIRMWARE_SIZE, 1);
 
-    fb2_write(firmware, FIRMWARE_SIZE, 0);
-
-    // printf("\r\nRead from flash: %x", fb2_read_word(0));
+    // printf("\r\nRead from flash: %x", fb2_read_byte(0));
 
 }
 void do_User() {
