@@ -126,7 +126,7 @@ void do_BusFault() {
     printf("\r\n%d", fault);
 }
 void flashbank2_manage() {
-    fb2_disable_wr_protation();
+    fb2_disable_wr_protection();
 
     fb2_write_word(0, 0xA);
 
