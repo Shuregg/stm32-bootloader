@@ -98,7 +98,7 @@ int main() {
 }
 /***************************** Обработчики команд ************************************/
 void do_BootSRAM() {
-    printf("\nJumping to SRAM app at %08lx....\n", APP_SRAM_OFFSET);
+    printf("\nJumping to SRAM app at 0x%x....\n", APP_SRAM_OFFSET);
 
     load_by_address(APP_SRAM_OFFSET);
 }
@@ -106,14 +106,12 @@ void do_BootSRAM() {
 void do_TestFlash2() {
     fb2_write_word('C', 0);
 
-    printf("\r\nRead from flash: %c", fb2_read_word(0));
+    printf("\r\nRead from flash: 0x%lx", fb2_read_word(0));
 }
 
 void flashbank2_manage() {
 
-    char * fw_byte;
-    char * firmware [FIRMWARE_SIZE];
-
+    char firmware [FIRMWARE_SIZE];
     vterm_gets(firmware, FIRMWARE_SIZE, 1);
 
     // printf("\r\nRead from flash: %x", fb2_read_byte(0));
@@ -149,7 +147,7 @@ void load_by_address(uint32_t addr){
     // 3) заменить текущий адрес стека на начальный адрес стека приложения
     __set_MSP(app_end_stack);
     // 4) задать новый адрес таблицы векторов прерываний
-    SCB->VTOR = app_IV;
+    SCB->VTOR = (uint32_t)app_IV;
     // Доп.2) Заменили обработчика HardFault в ТВП на собственный
     NVIC_SetVector(HardFault_IRQn, (uint32_t)HardFault_Handler);
     // Инвалидация кеша инстуркций у ядра Cortex-M7
