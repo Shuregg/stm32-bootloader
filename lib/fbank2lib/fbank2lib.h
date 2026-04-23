@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stm32h7xx.h>
+#include <stdio.h>
 
 void fb2_disable_wr_protection();
 

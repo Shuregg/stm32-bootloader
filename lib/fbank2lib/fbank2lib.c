@@ -7,11 +7,11 @@ void fb2_disable_wr_protection() {
     if (!(FLASH->CR2 & FLASH_CR_LOCK))
         printf("\r\nFlash bank 2 is unlocked!");
     else
-        printf("\r\nUnable to unlock flash bank 2! (CR2 was %d)", FLASH->CR2 & FLASH_CR_LOCK);
+        printf("\r\nUnable to unlock flash bank 2! (CR2 was %ld)", FLASH->CR2 & FLASH_CR_LOCK);
 
-    printf("\r\nPG before write: %d", FLASH->CR2 & FLASH_CR_PG);
+    printf("\r\nPG before write: %ld", FLASH->CR2 & FLASH_CR_PG);
     FLASH->CR2 |= FLASH_CR_PG;
-    printf("\r\nPG after write: %d", FLASH->CR2 & FLASH_CR_PG);
+    printf("\r\nPG after write: %ld", FLASH->CR2 & FLASH_CR_PG);
 }
 
 uint32_t fb2_read_word(uint32_t offset) {
