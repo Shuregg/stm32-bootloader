@@ -2,15 +2,21 @@ import serial
 import time
 import sys
 
-def init_serial_port():
+def init_serial_port(
+    _port="COM12", 
+    _baudrate=115200, 
+    _bytesize=serial.EIGHTBITS, 
+    _timeout=2, 
+    _stopbits=serial.STOPBITS_ONE
+):
     """Инициализация COM-порта"""
     try:
         serialPort = serial.Serial(
-            port="COM12", 
-            baudrate=115200, 
-            bytesize=8, 
-            timeout=2, 
-            stopbits=serial.STOPBITS_ONE
+            port = _port,
+            baudrate = _baudrate,
+            bytesize = _bytesize,
+            timeout = _timeout,
+            stopbits = _stopbits
         )
         return serialPort
     except serial.SerialException as e:
@@ -94,7 +100,14 @@ def main():
     print("-" * 40)
     
     # Инициализация COM-порта
-    serialPort = init_serial_port()
+    serialPort = init_serial_port(
+        "COM12",
+        115200, 
+        serial.EIGHTBITS, 
+        2, 
+        serial.STOPBITS_ONE
+    )
+
     if not serialPort:
         return
     
