@@ -1,4 +1,4 @@
-lib/fbank2lib/fbank2lib.c#pragma once
+#pragma once
 
 #include <stm32h7xx.h>
 
