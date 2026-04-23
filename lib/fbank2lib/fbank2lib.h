@@ -1,8 +1,8 @@
-#pragma once
+lib/fbank2lib/fbank2lib.c#pragma once
 
 #include <stm32h7xx.h>
 
-void fb2_disable_wr_protation();
+void fb2_disable_wr_protection();
 
 uint32_t fb2_read_word(uint32_t offset);
 

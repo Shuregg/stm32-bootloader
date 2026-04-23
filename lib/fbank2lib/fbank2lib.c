@@ -2,7 +2,7 @@
 
 #include "fbank2lib.h"
 
-void fb2_disable_wr_protation() {
+void fb2_disable_wr_protection() {
     FLASH->KEYR2 = 0x45670123;
     FLASH->KEYR2 = 0xCDEF89AB;
 
