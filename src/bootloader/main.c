@@ -10,7 +10,7 @@
 
 #define FIRMWARE_SIZE 6544
 
-#define NUM_COMMANDS 6
+#define NUM_COMMANDS 5
 #if NUM_COMMANDS > 9
 #error NUM_COMMANDS must be less then 10 or change read_handler_index()
 #endif
@@ -29,16 +29,17 @@ static void delay(int ms)
 extern void HardFault_Handler();
 uint32_t bootloader_SP = 0;
 static const char* gc_help_msg =
-    u8"\n\r┌────────────┬──────────────┬───────┬─────────────┐"
-    u8"\n\r│ 1:BootSRAM │ 2:TestFLASH2 │ 3:FB2 │ 4:BootFlash │"
-    u8"\n\r└────────────┴──────────────┴───────┴─────────────┘"
+    u8"\n\r┌────────────┬──────────────┬───────┬────────────┬─────────────┐"
+    u8"\n\r│ 1:BootSRAM │ 2:TestFLASH2 │ 3:FB2 │ 4:BootFlash│ 5:Erase FB2 │"
+    u8"\n\r└────────────┴──────────────┴───────┴────────────┴─────────────┘"
     u8"\n\r Выбор [1-4] > ";
 static void do_BootSRAM();
 static void do_TestFlash2();
 static void flashbank2_manage();
 static void do_User();
+static void flashbank2_erase();
 typedef void (*handler_func_t)();
-handler_func_t handlers[NUM_COMMANDS] = {do_BootSRAM, do_TestFlash2, flashbank2_manage, do_User};
+handler_func_t handlers[NUM_COMMANDS] = {do_BootSRAM, do_TestFlash2, flashbank2_manage, do_User, flashbank2_erase};
 uint8_t read_handler_index() {
     while (vterm_keypressed() != 0)
         ;
@@ -117,6 +118,10 @@ void flashbank2_manage() {
     // printf("\r\nRead from flash: %x", fb2_read_byte(0));
 
 }
+void flashbank2_erase() {
+    flash_bank_erase_seq(2);
+}
+
 void do_User() {
     load_by_address(APP_FLASH_SLOT1_OFFSET);
 }

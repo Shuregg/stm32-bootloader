@@ -47,3 +47,123 @@ uint32_t fb2_read(char * buffer, uint32_t size, uint32_t offset) {
         buffer_word[i] = fb2_read_word(offset+i);
     }
 }
+
+int unlock_flash_cr(uint8_t bank) {
+    int status = 0;
+
+    switch(bank) {
+    case 1: {
+        FLASH->KEYR1 = 0x45670123;
+        FLASH->KEYR1 = 0xCDEF89AB;
+        break;
+    }
+    case 2: {
+        FLASH->KEYR2 = 0x45670123;
+        FLASH->KEYR2 = 0xCDEF89AB;
+        break;
+    }
+    default: {
+        status = 1;
+        break;
+    }
+    }
+    return status;
+}
+
+
+int lock_flash_cr(uint8_t bank) {
+    int status = 0;
+    switch(bank) {
+    case 1: {
+        FLASH->CR1 |= FLASH_CR_LOCK;
+        status = !(FLASH->CR1 & FLASH_CR_LOCK_Msk);
+        break;
+    }
+    case 2: {
+        FLASH->CR2 |= FLASH_CR_LOCK;
+        status = !(FLASH->CR2 & FLASH_CR_LOCK_Msk);
+        break;
+    }
+    default: {
+        status = 1;
+        break;
+    }
+    }
+    return status;
+}
+
+int enable_write_op(uint8_t bank) {
+    int status = 0;
+
+    switch(bank) {
+    case 1: {
+        FLASH->CR1 |= FLASH_CR_PG;
+        status = (FLASH->CR1 & FLASH_CR_LOCK_Msk) || !(FLASH->CR1 & FLASH_CR_PG_Msk);
+        break;
+    }
+    case 2: {
+        FLASH->CR2 |= FLASH_CR_PG;
+        status = (FLASH->CR2 & FLASH_CR_LOCK_Msk) || !(FLASH->CR2 & FLASH_CR_PG_Msk);
+        break;
+    }
+    default: {
+        status = 1;
+        break;
+    }
+    }
+    return status;
+}
+
+// TODO
+int disable_write_op(uint8_t bank) {
+
+}
+
+
+// TODO Flash sector erase sequence
+int flash_sector_erase_seq() {
+
+}
+
+// Standard Flash bank erase sequence
+int flash_bank_erase_seq(u_int8_t bank) {
+    // 1. Check and clear (optional) all the error flags 
+    // due to previous programming/erase operation.
+    // Refer to Section 4.7: FLASH error management for details.
+    // (Or Table 26. Flash interrupt request)
+    FLASH->CCR2 = FLASH_CCR_CLR_CRCRDERR |
+                  FLASH_CCR_CLR_CRCEND |
+                  FLASH_CCR_CLR_DBECCERR |
+                  FLASH_CCR_CLR_SNECCERR |
+                  FLASH_CCR_CLR_RDSERR |
+                  FLASH_CCR_CLR_RDPERR |
+                  FLASH_CCR_CLR_OPERR |
+                  FLASH_CCR_CLR_INCERR |
+                  FLASH_CCR_CLR_STRBERR |
+                  FLASH_CCR_CLR_PGSERR |
+                  FLASH_CCR_CLR_WRPERR |
+                  FLASH_CCR_CLR_EOP; // optional
+
+    // 2. Unlock the FLASH_CR1/2 register, as described in Section 4.5.1:
+    // FLASH configuration protection
+    // (only if register is not already unlocked)
+    unlock_flash_cr(bank);
+
+    // 3. Set the BER1/2 bit in the FLASH_CR1/2 register
+    // corresponding to the targeted bank.
+    FLASH->CR2 |= FLASH_CR_BER; // (Bank Erase Request)
+
+    // 4. Set the START1/2 bit in the FLASH_CR1/2 register to 
+    // start the bank erase operation.
+    // Then wait until the QW1/2 bit is cleared in the 
+    // corresponding FLASH_SR1/2 register.
+    FLASH->CR2 |= FLASH_CR_START;
+
+    while(FLASH->SR2 & FLASH_SR_QW_Msk);
+    
+    // Note: BER1/2 and START1/2 bits can be set together, so above steps 3 and 4 can be merged.
+    // If a sector erase is requested simultaneously to the bank erase (SER1/2 bit set), the bank
+    // erase operation supersedes the sector erase operation.
+
+    lock_flash_cr(bank);
+}
