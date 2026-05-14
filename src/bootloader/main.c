@@ -8,9 +8,9 @@
 #define APP_FLASH_SLOT1_OFFSET 0x08070000
 #define AXISRAM_END 0x24080000
 
-#define FIRMWARE_SIZE 6544
+#define FIRMWARE_SIZE 6444
 
-#define NUM_COMMANDS 5
+#define NUM_COMMANDS 6
 #if NUM_COMMANDS > 9
 #error NUM_COMMANDS must be less then 10 or change read_handler_index()
 #endif
@@ -29,17 +29,19 @@ static void delay(int ms)
 extern void HardFault_Handler();
 uint32_t bootloader_SP = 0;
 static const char* gc_help_msg =
-    u8"\n\r┌────────────┬──────────────┬───────┬────────────┬─────────────┐"
-    u8"\n\r│ 1:BootSRAM │ 2:TestFLASH2 │ 3:FB2 │ 4:BootFlash│ 5:Erase FB2 │"
-    u8"\n\r└────────────┴──────────────┴───────┴────────────┴─────────────┘"
-    u8"\n\r Выбор [1-4] > ";
+    u8"\n\r┌────────────┬──────────────┬───────┬────────────┬────────────┬────────────────┐"
+    u8"\n\r│ 1:BootSRAM │ 2:TestFLASH2 │ 3:FB2 │ 4:BootFB2  │ 5:Erase FB2│ 6:Write pattern│"
+    u8"\n\r└────────────┴──────────────┴───────┴────────────┴────────────┴────────────────┘"
+    u8"\n\r Выбор [1-6] > ";
 static void do_BootSRAM();
 static void do_TestFlash2();
 static void flashbank2_manage();
-static void do_User();
+static void boot_fb2();
 static void flashbank2_erase();
+static void write_pattern();
 typedef void (*handler_func_t)();
-handler_func_t handlers[NUM_COMMANDS] = {do_BootSRAM, do_TestFlash2, flashbank2_manage, do_User, flashbank2_erase};
+handler_func_t handlers[NUM_COMMANDS] = {do_BootSRAM, do_TestFlash2,
+    flashbank2_manage, boot_fb2, flashbank2_erase, write_pattern};
 uint8_t read_handler_index() {
     while (vterm_keypressed() != 0)
         ;
@@ -70,7 +72,7 @@ void prepare_bootloader(){
 int main() {
     vterm_init(115200);
     enable_fault_handlers();
-    fb2_disable_wr_protection();
+    // fb2_disable_wr_protection();
 
     if (check_valid_BootSRAM())
     {
@@ -111,19 +113,33 @@ void do_TestFlash2() {
 }
 
 void flashbank2_manage() {
+    char firmware_bytes [FIRMWARE_SIZE + 1]; // '+1' for '\0'
+    assert((FIRMWARE_SIZE % 4) == 0);
 
-    char firmware [FIRMWARE_SIZE];
-    vterm_gets(firmware, FIRMWARE_SIZE, 1);
+    vterm_gets_firmware_bytes(firmware_bytes, (FIRMWARE_SIZE + 1), 1);
 
-    // printf("\r\nRead from flash: %x", fb2_read_byte(0));
-
+    for(int word_offset = 0; word_offset < (FIRMWARE_SIZE / 4); word_offset++) {
+        int* word_ptr = (int *)firmware_bytes;
+        int word = *(word_ptr + word_offset);
+        uint32_t addr_offset = word_offset * 4; // 4 - size of word
+        single_write_seq(2, addr_offset, word);
+    }
 }
 void flashbank2_erase() {
     flash_bank_erase_seq(2);
 }
 
-void do_User() {
-    load_by_address(APP_FLASH_SLOT1_OFFSET);
+void write_pattern() {
+    // (firmware_size / 4) because of we are writing the words, not the bytes.
+    for(uint32_t i = 0; i < (FIRMWARE_SIZE / 4); i++) {
+        uint32_t word = i;
+        uint32_t offset = i * 4;
+        single_write_seq(2, offset, word);
+    }
+}
+
+void boot_fb2() {
+    load_by_address(FLASH_BANK2_BASE);
 }
 
 _Bool check_valid_BootSRAM() {
