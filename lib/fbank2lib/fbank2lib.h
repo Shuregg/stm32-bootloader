@@ -2,6 +2,7 @@
 
 #include <stm32h7xx.h>
 #include <stdio.h>
+#include <assert.h>
 
 void fb2_disable_wr_protection();
 
@@ -19,6 +20,9 @@ int enable_write_op(uint8_t bank);
 int disable_write_op(uint8_t bank);
 
 int flash_bank_erase_seq(uint8_t bank);
+
+int single_write_seq(uint8_t bank, uint32_t offset, uint32_t word);
+void wait_qw_is_0(uint8_t bank);
 
 // TODO записывать ожидаемую последовательность байт в флеш внутри самой программы (прошивки), чтобы локализировать проблему:
 // В UART или в функциях записи?

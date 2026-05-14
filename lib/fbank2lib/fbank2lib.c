@@ -18,8 +18,13 @@ uint32_t fb2_read_word(uint32_t offset) {
     return *(uint32_t*)(FLASH_BANK2_BASE + offset);
 }
 
+// TODO implement both FLASH banks writing
 void fb2_write_word(uint32_t data, uint32_t offset) {
+    assert((offset & 0b11) == 00);
     *(uint32_t*)(FLASH_BANK2_BASE + offset) = data;
+    #if 0
+    printf("\n\r[0x%lx] wr 0x%8lx", (FLASH_BANK2_BASE + offset), data);
+    #endif
 }
 
 uint32_t fb2_write(char * data, uint32_t size, uint32_t base_offset) {
@@ -159,11 +164,33 @@ int flash_bank_erase_seq(u_int8_t bank) {
     // corresponding FLASH_SR1/2 register.
     FLASH->CR2 |= FLASH_CR_START;
 
-    while(FLASH->SR2 & FLASH_SR_QW_Msk);
+    wait_qw_is_0(bank);
     
     // Note: BER1/2 and START1/2 bits can be set together, so above steps 3 and 4 can be merged.
     // If a sector erase is requested simultaneously to the bank erase (SER1/2 bit set), the bank
     // erase operation supersedes the sector erase operation.
 
     lock_flash_cr(bank);
+}
+
+// TODO implement both FLASH banks writing
+int single_write_seq(uint8_t bank, uint32_t offset, uint32_t word) {
+    // printf("\n\rFB%0u WR 0x%lx to 0x%lx", bank, word, offset);
+    unlock_flash_cr(bank);
+    enable_write_op(bank);
+    fb2_write_word(/*bank,*/ word, offset);
+    wait_qw_is_0(bank);
+    lock_flash_cr(bank);
+}
+
+void wait_qw_is_0(uint8_t bank) {
+    switch (bank)
+    {
+    case 1:
+        while(FLASH->SR1 & FLASH_SR_QW_Msk);
+        break;
+    case 2:
+        while(FLASH->SR2 & FLASH_SR_QW_Msk);
+        break;
+    }
 }
