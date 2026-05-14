@@ -50,6 +50,9 @@ int vterm_gets(char* buf, int len, int echo);
  * @return 0, если нет символа,  иначе - код полученного символа  */
 unsigned char vterm_keypressed(void);
 
+int vterm_gets_firmware_bytes(char *buf, int size, int echo);
+
+
 #ifdef __cplusplus
 }
 #endif

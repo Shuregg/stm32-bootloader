@@ -109,6 +109,35 @@ int vterm_gets(char *buf, int size, int echo) {
   return i;
 }
 
+int vterm_gets_firmware_bytes(char *buf, int size, int echo) {
+  if (!lib_init_flag || !buf || size == 0)
+    return -1;
+  int i = 0;
+  int byte_cnt = 0;
+  int word_cnt = 0;
+  char word[4];
+  uint32_t four_words[4];
+  while (i < size - 1) {
+    char ch = uart_getch();
+    byte_cnt = i;
+    if (echo) {
+      word[0b11 - (byte_cnt & 0b11)] = ch;
+      if((byte_cnt & 0b11) == 0b11) {
+        four_words[word_cnt & 0b11] = *((uint32_t*)word);
+        if((word_cnt & 0b11) == 0b11) {
+          printf("\n\r [%08X] 0x%08lX 0x%08lX 0x%08lX 0x%08lX", (byte_cnt - 15),
+            four_words[0], four_words[1], four_words[2], four_words[3]);
+          }
+        word_cnt++;
+      }
+      // uart_putch(ch); // Echo to terminal
+    }
+    buf[i++] = ch;
+  }
+  buf[i] = '\0';
+  return i;
+}
+
 // ======================= Newlib IO functions =============================
 
 int _write(int file, char *ptr, int len) {
