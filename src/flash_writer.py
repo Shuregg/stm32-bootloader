@@ -29,8 +29,8 @@ def load_firmware(filename):
         with open(filename, 'rb') as f:
             firmware = f.read()
         
-        if len(firmware) != 6544:
-            print(f"Предупреждение: Размер файла {len(firmware)} байт, ожидается 6544 байт")
+        if len(firmware) != 6444:
+            print(f"Предупреждение: Размер файла {len(firmware)} байт, ожидается 6444 байт")
             print("Продолжаем загрузку...")
         
         return firmware
@@ -59,7 +59,7 @@ def upload_firmware(serialPort, firmware):
         # time.sleep(0.1)
         
         # Отправляем данные порциями
-        chunk_size = 6544
+        chunk_size = 1
         bytes_sent = 0
         
         for i in range(0, total_bytes, chunk_size):
@@ -68,7 +68,7 @@ def upload_firmware(serialPort, firmware):
             bytes_sent += bytes_written
             
             # Пауза для предотвращения переполнения буфера
-            time.sleep(0.01)
+            time.sleep(0.005)
             
             # Выводим прогресс
             progress = (bytes_sent * 100) // total_bytes
@@ -101,7 +101,7 @@ def main():
     
     # Инициализация COM-порта
     serialPort = init_serial_port(
-        "COM12",
+        "COM12", # "/dev/ttyACM0",
         115200, 
         serial.EIGHTBITS, 
         2, 
