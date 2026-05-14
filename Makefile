@@ -1,5 +1,5 @@
 DUMP_OFFSET := 0x08100000
-FIRMWARE_SIZE := 6544
+FIRMWARE_SIZE := 6444
 
 prog:
 	openocd \
