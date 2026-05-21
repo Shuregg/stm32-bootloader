@@ -1,6 +1,7 @@
 import serial
 import time
 import sys
+import os
 
 def init_serial_port(
     _port="COM12", 
@@ -28,12 +29,11 @@ def load_firmware(filename):
     try:
         with open(filename, 'rb') as f:
             firmware = f.read()
-        
-        if len(firmware) != 6444:
-            print(f"Предупреждение: Размер файла {len(firmware)} байт, ожидается 6444 байт")
-            print("Продолжаем загрузку...")
-        
-        return firmware
+
+        file_size = os.path.getsize(filename)
+        print("Размер файла в байтах:", file_size)
+
+        return firmware, file_size
     except FileNotFoundError:
         print(f"Ошибка: Файл {filename} не найден")
         return None
@@ -41,52 +41,81 @@ def load_firmware(filename):
         print(f"Ошибка чтения файла: {e}")
         return None
 
-def upload_firmware(serialPort, firmware):
+def prepare_uart(serialPort):
+    # Очищаем буферы порта
+    serialPort.reset_input_buffer()
+    serialPort.reset_output_buffer()
+
+    # Даем время устройству подготовиться
+    time.sleep(0.5)
+
+def check_resp_uart(serialPort):
+    resp = serialPort.read(1)
+    good_resp = 10
+    good_resp_b = good_resp.to_bytes(1)
+
+    # if (resp != good_resp_b):
+    #     raise Exception(f"Ответ устройства ({resp.hex()}) не равен {good_resp_b.hex()}!")
+    return resp
+
+def write_uart(serialPort, firmware, total_bytes, chunk_size=1):
+    bytes_sent = 0
+    for i in range(0, total_bytes, chunk_size):
+        chunk = firmware[i:i+chunk_size]
+        bytes_written = serialPort.write(chunk)
+        bytes_sent += bytes_written
+
+        # Пауза для предотвращения переполнения буфера
+        time.sleep(0.005)
+
+        resp = bytes(0)
+
+        if (bytes_sent % 256 == 0):
+            resp = check_resp_uart(serialPort)
+
+        # Выводим прогресс
+        progress = (bytes_sent * 100) // total_bytes
+        print(f"\rПрогресс: {progress}% ({bytes_sent}/{total_bytes} байт). Последний ответ: {resp.hex()}", end='')
+
+    print()
+    return bytes_sent
+
+def send_firmware_size(serialPort, firmware_size):
+    print(f"Отправляем размер прошивки ({hex(firmware_size)})")
+
+    word_size = 4
+    chunk_size = 1
+    prepare_uart(serialPort)
+
+    firmware_size_b = firmware_size.to_bytes(word_size, 'big')
+
+    print(f'Перевод размера прошивки в байты ({word_size}): 0x{firmware_size_b.hex()}')
+
+    write_uart(serialPort, firmware_size_b, word_size, chunk_size)
+
+    print("Ожидаем ответ устройсва")
+    check_resp_uart(serialPort)
+
+
+
+def upload_firmware(serialPort, firmware, total_bytes):
     """Загрузка прошивки через COM-порт"""
     try:
-        total_bytes = len(firmware)
+        send_firmware_size(serialPort, total_bytes)
+
         print(f"Начинаем загрузку прошивки ({total_bytes} байт)...")
-        
-        # Очищаем буферы порта
-        serialPort.reset_input_buffer()
-        serialPort.reset_output_buffer()
-        
-        # Даем время устройству подготовиться
-        time.sleep(0.5)
-        
-        # Отправляем команду начала прошивки (опционально)
-        # serialPort.write(b'START_FIRMWARE_UPDATE\n')
-        # time.sleep(0.1)
-        
+
+        prepare_uart(serialPort)
+
         # Отправляем данные порциями
         chunk_size = 1
-        bytes_sent = 0
-        
-        for i in range(0, total_bytes, chunk_size):
-            chunk = firmware[i:i+chunk_size]
-            bytes_written = serialPort.write(chunk)
-            bytes_sent += bytes_written
-            
-            # Пауза для предотвращения переполнения буфера
-            time.sleep(0.005)
-            
-            # Выводим прогресс
-            progress = (bytes_sent * 100) // total_bytes
-            print(f"\rПрогресс: {progress}% ({bytes_sent}/{total_bytes} байт)", end='')
-        
+
+        bytes_sent = write_uart(serialPort, firmware, total_bytes, chunk_size)
+
         print(f"\nОтправлено {bytes_sent} байт из {total_bytes}")
-        
-        # Отправляем команду завершения прошивки (опционально)
-        # serialPort.write(b'END_FIRMWARE_UPDATE\n')
-        
-        # Читаем ответ от устройства (если ожидается)
-        time.sleep(0.5)
-        response = serialPort.read(100)
-        if response:
-            print(f"Ответ устройства: {response[:50]}...")
-        
+
         return bytes_sent == total_bytes
-        
+
     except serial.SerialException as e:
         print(f"\nОшибка при отправке данных: {e}")
         return False
@@ -98,10 +127,10 @@ def main():
     """Основная функция"""
     print("Программа загрузки прошивки")
     print("-" * 40)
-    
+
     # Инициализация COM-порта
     serialPort = init_serial_port(
-        "COM12", # "/dev/ttyACM0",
+        "COM15", # "/dev/ttyACM0",
         115200, 
         serial.EIGHTBITS, 
         2, 
@@ -112,19 +141,25 @@ def main():
         return
     
     print(f"COM-порт открыт: {serialPort.port}")
-    
+
     # Загрузка прошивки
-    firmware = load_firmware("./firmware.bin")
+    filepath = input("Введите путь до .bin файла\n> ")
+    print(filepath[-4:])
+
+    if (filepath[-4:] != ".bin"):
+        print("Расширение файла должно быть .bin")
+
+    firmware, size = load_firmware(filepath)
     if not firmware:
         serialPort.close()
         return
-    
+
     # Загрузка прошивки на устройство
-    success = upload_firmware(serialPort, firmware)
-    
+    success = upload_firmware(serialPort, firmware, size)
+
     # Закрываем порт
     serialPort.close()
-    
+
     if success:
         print("Загрузка прошивки успешно завершена!")
     else:
