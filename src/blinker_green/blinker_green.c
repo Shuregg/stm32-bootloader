@@ -19,15 +19,9 @@ int main()
         static int counter = 0;
         printf("\r%s %d %s", "Светодиод был переключен", counter++, "раз(а)");
 
-        led_toggle(led_red); // переключение «вкл <-> откл»
         led_toggle(led_green); // переключение «вкл <-> откл»
         delay(100);     // пауза между переключениями
-        led_toggle(led_red); // переключение «вкл <-> откл»
         led_toggle(led_green); // переключение «вкл <-> откл»
-
-        led_toggle(led_yellow); // переключение «вкл <-> откл»
-        delay(100);     // пауза между переключениями
-        led_toggle(led_yellow); // переключение «вкл <-> откл»
     };
 
 }
