@@ -8,7 +8,9 @@
 #define APP_FLASH_SLOT1_OFFSET 0x08070000
 #define AXISRAM_END 0x24080000
 
-#define FIRMWARE_SIZE 6444
+// '+ 1' for '\0' symbol
+#define FW_SIZE_WORD_SIZE (4 + 1)
+#define FW_BUF_SIZE (256 + 1)
 
 #define NUM_COMMANDS 6
 #if NUM_COMMANDS > 9
@@ -113,16 +115,79 @@ void do_TestFlash2() {
 }
 
 void flashbank2_manage() {
-    char firmware_bytes [FIRMWARE_SIZE + 1]; // '+1' for '\0'
-    assert((FIRMWARE_SIZE % 4) == 0);
+    // Four bytes (one word) for firmware size
+    char fw_size_word_buf[FW_SIZE_WORD_SIZE];
+    char fw_buf[FW_BUF_SIZE];
+    uint32_t fw_size; // Fixed 4-byte size
 
-    vterm_gets_firmware_bytes(firmware_bytes, (FIRMWARE_SIZE + 1), 1);
+    size_t full_transactions_amount; // Amount of fully filled 256-size packets
+    size_t partly_transaction_size; // Size in bytes of remained firmware (less than 256, can be equal to zero)
 
-    for(int word_offset = 0; word_offset < (FIRMWARE_SIZE / 4); word_offset++) {
-        int* word_ptr = (int *)firmware_bytes;
-        int word = *(word_ptr + word_offset);
-        uint32_t addr_offset = word_offset * 4; // 4 - size of word
-        single_write_seq(2, addr_offset, word);
+    // Getting four bytes with firmware size in bytes.
+    vterm_gets_firmware_bytes(fw_size_word_buf, FW_SIZE_WORD_SIZE, 1);
+    fw_size = (*(uint32_t*)(fw_size_word_buf));
+    printf("\n\rGot firmware size: %ld", fw_size);
+    assert(fw_size);
+    if (!fw_size) {
+        // Send acknowledge magic byte 0x1 (Firmware size is 0)
+        uart_send_byte((char)(0x1));
+    } else {
+        // Send acknowledge magic byte 0xA (all ok)
+        uart_send_byte((char)(0xA));
+        
+        full_transactions_amount = fw_size / (FW_BUF_SIZE - 1);
+        partly_transaction_size = fw_size - (full_transactions_amount * (FW_BUF_SIZE - 1));
+        
+        assert(full_transactions_amount);
+        assert(partly_transaction_size < (FW_BUF_SIZE - 1));
+        
+        // Get fully filled packet transaction
+        for (size_t tr = 0; tr < full_transactions_amount; tr++) {
+            printf("\n\rGetting fully filled packet # %d/%d...", tr + 1, full_transactions_amount);
+            for(int b = 0; b < (FW_BUF_SIZE - 1); b++) {
+                vterm_gets_firmware_bytes(fw_buf, FW_BUF_SIZE, 1);
+            }
+
+            // Write packet transaction (256 bytes) to FB2
+            for(int word_offset = 0; word_offset < ((FW_BUF_SIZE - 1) / 4); word_offset++) {
+                int* word_ptr = (int *)fw_buf;
+                int word = *(word_ptr + word_offset);
+                uint32_t addr_offset = word_offset * 4; // 4 - size of word
+                single_write_seq(2, addr_offset, word);
+            }
+
+            // Send acknowledge magic byte (0xA)
+            uart_send_byte((char)(0xA));
+        }
+
+        // Get last and partly filled packet transaction
+        if (partly_transaction_size) {
+            printf("\n\rGetting partly filled packet (last)...");
+            vterm_gets_firmware_bytes(fw_buf, FW_BUF_SIZE, 1);
+
+            int full_filled_words_amount = (partly_transaction_size / 4);
+            int remained_bytes = partly_transaction_size - (full_filled_words_amount * 4);
+            int words_amount;
+
+            if (remained_bytes) {
+                // Set bytes to 0xFF in unaligned word 
+                for (int b = (full_filled_words_amount * 4) + remained_bytes; b < (full_filled_words_amount * 4) + 4; b++) {
+                    fw_buf[b] = 0xFF;
+                }
+                words_amount = (full_filled_words_amount + 1);
+            } else {
+                words_amount = (full_filled_words_amount);
+            }
+
+            // Write packet transaction ('partly_transaction_size' bytes) to FB2
+            for(int word_offset = 0; word_offset < words_amount; word_offset++) {
+                int* word_ptr = (int *)fw_buf;
+                int word = *(word_ptr + word_offset);
+                uint32_t addr_offset = word_offset * 4; // 4 - size of word
+                single_write_seq(2, addr_offset, word);
+            }
+            uart_send_byte((char)(0xA));
+        }
     }
 }
 void flashbank2_erase() {
@@ -130,12 +195,14 @@ void flashbank2_erase() {
 }
 
 void write_pattern() {
+#if 0
     // (firmware_size / 4) because of we are writing the words, not the bytes.
     for(uint32_t i = 0; i < (FIRMWARE_SIZE / 4); i++) {
         uint32_t word = i;
         uint32_t offset = i * 4;
         single_write_seq(2, offset, word);
     }
+#endif
 }
 
 void boot_fb2() {

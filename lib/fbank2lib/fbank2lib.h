@@ -29,3 +29,5 @@ void wait_qw_is_0(uint8_t bank);
 
 
 int fb2_erase();    
+
+void uart_send_byte(char byte);

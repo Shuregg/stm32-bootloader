@@ -38,6 +38,8 @@ uint32_t fb2_write(char * data, uint32_t size, uint32_t base_offset) {
     {
         fb2_write_word(data_word[i], base_offset+i);
     }
+
+    return 0;
 }
 
 uint32_t fb2_read(char * buffer, uint32_t size, uint32_t offset) {
@@ -51,6 +53,8 @@ uint32_t fb2_read(char * buffer, uint32_t size, uint32_t offset) {
     {
         buffer_word[i] = fb2_read_word(offset+i);
     }
+
+    return 0;
 }
 
 int unlock_flash_cr(uint8_t bank) {
@@ -121,13 +125,15 @@ int enable_write_op(uint8_t bank) {
 
 // TODO
 int disable_write_op(uint8_t bank) {
-
+    int is_ok = 0;
+    return is_ok;
 }
 
 
 // TODO Flash sector erase sequence
 int flash_sector_erase_seq() {
-
+    int is_ok = 0;
+    return is_ok;
 }
 
 // Standard Flash bank erase sequence
@@ -171,6 +177,8 @@ int flash_bank_erase_seq(u_int8_t bank) {
     // erase operation supersedes the sector erase operation.
 
     lock_flash_cr(bank);
+
+    return 1;
 }
 
 // TODO implement both FLASH banks writing
@@ -181,6 +189,8 @@ int single_write_seq(uint8_t bank, uint32_t offset, uint32_t word) {
     fb2_write_word(/*bank,*/ word, offset);
     wait_qw_is_0(bank);
     lock_flash_cr(bank);
+
+    return 1;
 }
 
 void wait_qw_is_0(uint8_t bank) {
@@ -193,4 +203,9 @@ void wait_qw_is_0(uint8_t bank) {
         while(FLASH->SR2 & FLASH_SR_QW_Msk);
         break;
     }
+}
+
+void uart_send_byte(char byte) {
+    do {} while ((USART3->ISR & USART_ISR_TXFE) != 0);
+    USART3->TDR = byte;
 }
